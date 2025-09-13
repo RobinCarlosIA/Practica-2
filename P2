@@ -1,0 +1,82 @@
+# chat_aprendizaje_simple.py
+# Chat de consola MUY simple con "adquisición de conocimiento".
+# - Tiene 3 frases precargadas.
+# - Si no encuentra respuesta exacta, te pide enseñar la respuesta y la guarda en kb_simple.json
+# - Escribe "salir" para terminar.
+
+import json
+import os
+import re
+
+KB_FILE = "kb_simple.json"
+
+DEFAULT_KB = [
+    {"q": "hola", "a": "¡Hola! :)", "topic": "saludo"},
+    {"q": "como estas", "a": "Muy bien, ¿y tú?", "topic": "smalltalk"},
+    {"q": "de que te gustaria hablar", "a": "De lo que quieras: escuela, trabajo o algún hobby.", "topic": "smalltalk"},
+]
+
+def normalize(s: str) -> str:
+    s = s.lower()
+    # quitar acentos básicos sin librerías externas
+    s = (s
+         .replace("á","a").replace("é","e").replace("í","i")
+         .replace("ó","o").replace("ú","u").replace("ü","u")
+         .replace("ñ","ñ"))
+    s = re.sub(r"[^a-z0-9¿?¡!ñ\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+def load_kb():
+    if not os.path.exists(KB_FILE):
+        save_kb(DEFAULT_KB)
+        return list(DEFAULT_KB)
+    try:
+        with open(KB_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        pass
+    return list(DEFAULT_KB)
+
+def save_kb(kb):
+    with open(KB_FILE, "w", encoding="utf-8") as f:
+        json.dump(kb, f, ensure_ascii=False, indent=2)
+
+def buscar_respuesta(user_text: str, kb: list[dict]) -> str | None:
+    n = normalize(user_text)
+    # Coincidencia EXACTA (muy simple)
+    for r in kb:
+        if normalize(r["q"]) == n:
+            return r["a"]
+    return None
+
+def main():
+    kb = load_kb()
+    print("Chat simple con aprendizaje (escribe 'salir' para terminar).")
+    print("Frases precargadas: 'hola' | 'como estas' | 'de que te gustaria hablar'")
+    while True:
+        user = input("\nTú: ").strip()
+        if not user:
+            continue
+        if user.lower() == "salir":
+            print("Bot: ¡Hasta luego!")
+            break
+
+        ans = buscar_respuesta(user, kb)
+        if ans:
+            print(f"Bot: {ans}")
+        else:
+            print(f"Bot: No tengo una respuesta para: \"{user}\".")
+            new_a = input("Bot: ¿Qué debería responder cuando alguien diga eso? (o deja vacío para omitir): ").strip()
+            if new_a:
+                # Guardar conocimiento nuevo
+                kb.append({"q": normalize(user), "a": new_a, "topic": "aprendido"})
+                save_kb(kb)
+                print("Bot: ¡Gracias! He aprendido esa respuesta.")
+            else:
+                print("Bot: Entendido, no aprenderé esta vez.")
+
+if __name__ == "__main__":
+    main()
